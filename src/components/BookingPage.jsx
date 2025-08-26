@@ -17,8 +17,9 @@ const BookingPage = ({ hotels, onAddBooking, isDarkTheme, onToggleTheme }) => {
     roomType: 'standard',
     specialRequests: ''
   })
-
+  
   const [errors, setErrors] = useState({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -50,6 +51,11 @@ const BookingPage = ({ hotels, onAddBooking, isDarkTheme, onToggleTheme }) => {
       }
     }
     
+    // Email validation
+    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address'
+    }
+    
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -71,23 +77,41 @@ const BookingPage = ({ hotels, onAddBooking, isDarkTheme, onToggleTheme }) => {
     return Math.round(nights * hotel.price * roomMultiplier)
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+  const handleSubmit = async (e) => {
+    e.preventDefault() // 👈 This prevents page refresh
     
     if (!validateForm()) return
-
-    const booking = {
-      hotelId: parseInt(hotelId),
-      hotelName: hotel.name,
-      hotelLocation: hotel.location,
-      ...formData,
-      nights: calculateNights(),
-      totalAmount: calculateTotal()
-    }
     
-    onAddBooking(booking)
-    alert(`Booking confirmed for ${hotel.name}!\nTotal: ₹${calculateTotal().toLocaleString()}`)
-    navigate('/')
+    setIsSubmitting(true)
+
+    try {
+      const booking = {
+        hotelId: parseInt(hotelId),
+        hotelName: hotel.name,
+        hotelLocation: hotel.location,
+        hotelImage: hotel.image,
+        hotelRating: hotel.rating,
+        ...formData,
+        nights: calculateNights(),
+        totalAmount: calculateTotal(),
+        bookingDate: new Date().toISOString(),
+        status: 'confirmed'
+      }
+      
+      onAddBooking(booking)
+      
+      // Success feedback
+      alert(`✅ Booking Confirmed!\n\nBooking for: ${hotel.name}\nGuest: ${formData.guestName}\nDates: ${formData.checkIn} to ${formData.checkOut}\nTotal: ₹${calculateTotal().toLocaleString()}\n\nA confirmation email will be sent to ${formData.email}`)
+      
+      // Navigate back to home
+      navigate('/')
+      
+    } catch (error) {
+      console.error('Booking error:', error)
+      alert('❌ Booking failed. Please try again.')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (!hotel) {
@@ -119,6 +143,7 @@ const BookingPage = ({ hotels, onAddBooking, isDarkTheme, onToggleTheme }) => {
         </div>
 
         <div className="booking-content">
+          {/* Hotel Summary */}
           <div className="hotel-summary">
             <img src={hotel.image} alt={hotel.name} className="hotel-summary-image" />
             <div className="hotel-summary-info">
@@ -128,20 +153,23 @@ const BookingPage = ({ hotels, onAddBooking, isDarkTheme, onToggleTheme }) => {
               <p className="price">₹{hotel.price.toLocaleString()}/night</p>
               <p className="description">{hotel.description}</p>
               
-              <div className="hotel-amenities-summary">
-                <h4>Available Amenities:</h4>
-                <div className="amenities-list">
-                  {hotel.amenities.slice(0, 6).map(amenity => (
-                    <span key={amenity} className="amenity-tag-small">{amenity}</span>
-                  ))}
-                  {hotel.amenities.length > 6 && (
-                    <span className="amenity-tag-small">+{hotel.amenities.length - 6} more</span>
-                  )}
+              {hotel.amenities && hotel.amenities.length > 0 && (
+                <div className="hotel-amenities-summary">
+                  <h4>Available Amenities:</h4>
+                  <div className="amenities-list">
+                    {hotel.amenities.slice(0, 6).map(amenity => (
+                      <span key={amenity} className="amenity-tag-small">{amenity}</span>
+                    ))}
+                    {hotel.amenities.length > 6 && (
+                      <span className="amenity-tag-small">+{hotel.amenities.length - 6} more</span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
+          {/* Booking Form */}
           <form onSubmit={handleSubmit} className="booking-form">
             <h3>Booking Details</h3>
             
@@ -155,6 +183,7 @@ const BookingPage = ({ hotels, onAddBooking, isDarkTheme, onToggleTheme }) => {
                   value={formData.guestName}
                   onChange={handleChange}
                   className={errors.guestName ? 'error' : ''}
+                  required
                 />
                 {errors.guestName && <span className="error-text">{errors.guestName}</span>}
               </div>
@@ -168,6 +197,7 @@ const BookingPage = ({ hotels, onAddBooking, isDarkTheme, onToggleTheme }) => {
                   value={formData.email}
                   onChange={handleChange}
                   className={errors.email ? 'error' : ''}
+                  required
                 />
                 {errors.email && <span className="error-text">{errors.email}</span>}
               </div>
@@ -183,6 +213,7 @@ const BookingPage = ({ hotels, onAddBooking, isDarkTheme, onToggleTheme }) => {
                   value={formData.phone}
                   onChange={handleChange}
                   className={errors.phone ? 'error' : ''}
+                  required
                 />
                 {errors.phone && <span className="error-text">{errors.phone}</span>}
               </div>
@@ -196,7 +227,9 @@ const BookingPage = ({ hotels, onAddBooking, isDarkTheme, onToggleTheme }) => {
                   onChange={handleChange}
                 >
                   {[...Array(8)].map((_, i) => (
-                    <option key={i + 1} value={i + 1}>{i + 1} Guest{i > 0 ? 's' : ''}</option>
+                    <option key={i + 1} value={i + 1}>
+                      {i + 1} Guest{i > 0 ? 's' : ''}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -213,6 +246,7 @@ const BookingPage = ({ hotels, onAddBooking, isDarkTheme, onToggleTheme }) => {
                   onChange={handleChange}
                   min={new Date().toISOString().split('T')[0]}
                   className={errors.checkIn ? 'error' : ''}
+                  required
                 />
                 {errors.checkIn && <span className="error-text">{errors.checkIn}</span>}
               </div>
@@ -227,6 +261,7 @@ const BookingPage = ({ hotels, onAddBooking, isDarkTheme, onToggleTheme }) => {
                   onChange={handleChange}
                   min={formData.checkIn || new Date().toISOString().split('T')[0]}
                   className={errors.checkOut ? 'error' : ''}
+                  required
                 />
                 {errors.checkOut && <span className="error-text">{errors.checkOut}</span>}
               </div>
@@ -277,11 +312,20 @@ const BookingPage = ({ hotels, onAddBooking, isDarkTheme, onToggleTheme }) => {
             )}
 
             <div className="form-actions">
-              <button type="button" onClick={() => navigate('/')} className="cancel-btn">
+              <button 
+                type="button" 
+                onClick={() => navigate('/')} 
+                className="cancel-btn"
+                disabled={isSubmitting}
+              >
                 Cancel
               </button>
-              <button type="submit" className="submit-btn">
-                Confirm Booking
+              <button 
+                type="submit" 
+                className="submit-btn"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Processing...' : 'Confirm Booking'}
               </button>
             </div>
           </form>
